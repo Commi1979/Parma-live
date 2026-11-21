@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Handball Live Studio Pro v5 - Transizione Formazioni dal Basso (1 nome/sec)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body { width: 100%; height: 100%; background: #000; color: #f8fafc; overflow: hidden; }
+
+  .fullscreen-stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #020617;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  canvas#programCanvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .hud-top {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .hud-top > * { pointer-events: auto; }
+
+  .hud-btn {
+    background: rgba(15, 23, 42, 0.84);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fff;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+  }
+  .hud-btn:active { transform: scale(0.96); }
+  .hud-btn.primary { background: rgba(2, 132, 199, 0.92); border-color: #38bdf8; }
+  .hud-btn.success { background: rgba(22, 163, 74, 0.92); border-color: #4ade80; }
+  .hud-btn.danger, .hud-btn.active { background: rgba(220, 38, 38, 0.94); border-color: #f87171; }
+  .hud-btn.warn { background: rgba(202, 138, 4, 0.94); border-color: #facc15; color: #000; }
+
+  .hud-bottom {
+    position: fixed;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .hud-bottom > * { pointer-events: auto; }
+
+  .control-cluster {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.86);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    padding: 6px 10px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.55);
+  }
+
+  .team-tag {
+    font-size: 12px;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: #fff;
+    max-width: 95px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .score-pill {
+    font-size: 20px;
+    font-weight: 900;
+    min-width: 28px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mini-btn {
+    background: #1e293b;
+    color: #fff;
+    border: 1px solid #475569;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .mini-btn:active { transform: scale(0.95); }
+  .mini-btn.gol { background: #16a34a; border-color: #4ade80; }
+  .mini-btn.min2 { background: #eab308; border-color: #fde047; color: #000; }
+  .mini-btn.danger { background: #dc2626; border-color: #f87171; }
+
+  .lineup-popover {
+    position: fixed;
+    bottom: 74px;
+    right: 12px;
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(12px);
+    border: 1px solid #38bdf8;
+    border-radius: 12px;
+    padding: 10px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 25;
+    min-width: 260px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.75);
+  }
+  .lineup-popover.open { display: flex; }
+
+  .settings-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 30;
+    display: none;
+  }
+  .settings-backdrop.open { display: block; }
+
+  .settings-drawer {
+    position: fixed;
+    top: 0;
+    right: -480px;
+    width: 100%;
+    max-width: 460px;
+    height: 100vh;
+    background: #0f172a;
+    border-left: 1px solid #334155;
+    z-index: 35;
+    transition: right 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .settings-drawer.open { right: 0; }
+
+  .drawer-header {
+    padding: 14px 16px;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .drawer-header h2 { font-size: 15px; color: #38bdf8; font-weight: 800; }
+
+  .drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .section-box {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .section-box h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #94a3b8;
+  }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input[type="text"], input[type="password"], input[type="number"], select {
+    background: #0f172a;
+    color: #fff;
+    border: 1px solid #475569;
+    padding: 7px 9px;
+    border-radius: 8px;
+    font-size: 12px;
+    user-select: text;
+  }
+  .player-row {
+    display: grid;
+    grid-template-columns: 40px 1fr auto auto;
+    gap: 5px;
+    align-items: center;
+  }
+  .player-row input { width: 100%; padding: 5px 6px; font-size: 12px; }
+  .sponsor-item {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .sponsor-item.current { border-color: #facc15; }
+  .badge-2m {
+    background: #eab308;
+    color: #000;
+    font-weight: 800;
+    padding: 3px 7px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .logo-preview {
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    background: #0f172a;
+    border: 1px solid #475569;
+    object-fit: contain;
+  }
+  .note { font-size: 11px; color: #94a3b8; line-height: 1.4; }
+</style>
+</head>
+<body>
+
+  <!-- AREA VIDEO A TUTTO SCHERMO -->
+  <div class="fullscreen-stage">
+    <canvas id="programCanvas" width="1280" height="720"></canvas>
+    <video id="camVideo" autoplay muted playsinline style="display:none"></video>
+  </div>
+
+  <!-- BARRA SUPERIORE FLOTTANTE -->
+  <div class="hud-top">
+    <button id="btnCam" class="hud-btn primary" onclick="startSmartphoneCamera()">📷 Camera</button>
+    <button id="btnFlip" class="hud-btn" onclick="flipCamera()">🔄 Gira</button>
+    <button id="btnSponsorHud" class="hud-btn warn" onclick="handleSponsorButton()">⭐ Sponsor (1/3)</button>
+    <button id="btnSponsorHideHud" class="hud-btn" style="display:none;" onclick="hideSponsorPopup()">✕ Chiudi Sponsor</button>
+    <button id="btnStream" class="hud-btn danger" onclick="toggleBroadcast()">📡 Diretta YT</button>
+    <button id="btnRec" class="hud-btn success" onclick="toggleRecord()">⏺ Registra</button>
+    <button class="hud-btn" onclick="toggleSettings(true)">☰ Impostazioni</button>
+  </div>
+
+  <!-- POPUP RAPIDO FORMAZIONI ON-DEMAND -->
+  <div id="lineupPopover" class="lineup-popover">
+    <div style="font-size:11px; color:#94a3b8; font-weight:700; text-transform:uppercase;">Formazioni (Finestra dal basso + 1 nome/sec)</div>
+    <button id="ovHome" class="hud-btn" style="width:100%; justify-content:center;" onclick="setLineupOverlay('home')">Formazione Casa</button>
+    <button id="ovAway" class="hud-btn" style="width:100%; justify-content:center;" onclick="setLineupOverlay('away')">Formazione Ospiti</button>
+    <button id="ovBoth" class="hud-btn" style="width:100%; justify-content:center;" onclick="setLineupOverlay('both')">Confronto Entrambe</button>
+    <button id="ovNone" class="hud-btn active" style="width:100%; justify-content:center;" onclick="setLineupOverlay('none')">Nascondi Grafica</button>
+  </div>
+
+  <!-- DOCK INFERIORE SEMPRE ACCESSIBILE -->
+  <div class="hud-bottom">
+    <div class="control-cluster">
+      <span id="hudHomeTag" class="team-tag" style="background:#0284c7;">CASA</span>
+      <button class="mini-btn" onclick="addScore('home', -1)">-1</button>
+      <span id="homeScoreTxt" class="score-pill">0</span>
+      <button class="mini-btn gol" onclick="addScore('home', 1)">+1</button>
+      <button class="mini-btn min2" onclick="addSuspension('home')">2'</button>
+    </div>
+
+    <div class="control-cluster">
+      <button id="btnTimer" class="mini-btn gol" onclick="toggleTimer()">▶ Tempo</button>
+      <span id="hudTimerTxt" style="font-family:monospace; font-size:15px; font-weight:800; padding:0 4px;">00:00</span>
+    </div>
+
+    <div class="control-cluster">
+      <span id="hudAwayTag" class="team-tag" style="background:#dc2626;">OSPITI</span>
+      <button class="mini-btn" onclick="addScore('away', -1)">-1</button>
+      <span id="awayScoreTxt" class="score-pill">0</span>
+      <button class="mini-btn gol" onclick="addScore('away', 1)">+1</button>
+      <button class="mini-btn min2" onclick="addSuspension('away')">2'</button>
+    </div>
+
+    <button id="btnToggleLineupMenu" class="hud-btn primary" onclick="toggleLineupPopover()">📋 Mostra Formazioni</button>
+  </div>
+
+  <!-- MENU LATERALE IMPOSTAZIONI -->
+  <div id="settingsBackdrop" class="settings-backdrop" onclick="toggleSettings(false)"></div>
+  <aside id="settingsDrawer" class="settings-drawer">
+    <div class="drawer-header">
+      <h2>⚙️ Impostazioni Regia</h2>
+      <button class="mini-btn" onclick="toggleSettings(false)">✕ Chiudi</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- 1. Squadre, Loghi, Allenatori e Timeout -->
+      <div class="section-box">
+        <h3>Squadre, Loghi & Allenatori</h3>
+        <div class="row">
+          <input type="color" id="homeColor" value="#0284c7" onchange="syncTeamUI()" style="width:34px;height:34px;padding:2px;">
+          <input type="text" id="homeName" value="CASA" maxlength="14" oninput="syncTeamUI()" style="flex:1;" placeholder="Nome Casa">
+          <img id="homeLogoPrev" class="logo-preview" alt="" style="display:none;">
+          <button class="mini-btn" onclick="document.getElementById('homeLogoInput').click()">🖼️ Logo</button>
+          <input type="file" id="homeLogoInput" accept="image/*" style="display:none" onchange="loadLogoImage(event, 'home')">
+        </div>
+        <div class="row">
+          <input type="text" id="homeCoach" value="Mister Verdi G." placeholder="Allenatore Casa" style="flex:1;">
+          <button class="mini-btn" onclick="toggleTimeout('home')">TO (<span id="homeToTxt">3</span>)</button>
+        </div>
+
+        <hr style="border:0; border-top:1px solid #334155; margin:4px 0;">
+
+        <div class="row">
+          <input type="color" id="awayColor" value="#dc2626" onchange="syncTeamUI()" style="width:34px;height:34px;padding:2px;">
+          <input type="text" id="awayName" value="OSPITI" maxlength="14" oninput="syncTeamUI()" style="flex:1;" placeholder="Nome Ospiti">
+          <img id="awayLogoPrev" class="logo-preview" alt="" style="display:none;">
+          <button class="mini-btn" onclick="document.getElementById('awayLogoInput').click()">🖼️ Logo</button>
+          <input type="file" id="awayLogoInput" accept="image/*" style="display:none" onchange="loadLogoImage(event, 'away')">
+        </div>
+        <div class="row">
+          <input type="text" id="awayCoach" value="Mister Neri L." placeholder="Allenatore Ospiti" style="flex:1;">
+          <button class="mini-btn" onclick="toggleTimeout('away')">TO (<span id="awayToTxt">3</span>)</button>
+        </div>
+
+        <div class="row" style="justify-content:space-between; margin-top:4px;">
+          <select id="halfSelect">
+            <option value="1°T">1° Tempo</option>
+            <option value="2°T">2° Tempo</option>
+            <option value="INT">Intervallo</option>
+          </select>
+          <button class="mini-btn" onclick="resetTimer()">Reset 00:00</button>
+          <button class="mini-btn" onclick="toggleBrowserFullscreen()">Schermo Intero</button>
+        </div>
+        <div id="suspensionsList" class="row"></div>
+      </div>
+
+      <!-- 2. Gestione Multi-Sponsor a Rotazione -->
+      <div class="section-box">
+        <div class="row" style="justify-content:space-between;">
+          <h3>Sponsor a Rotazione (<span id="sponsorCountTxt">3</span>)</h3>
+          <button class="mini-btn gol" onclick="addSponsor()">+ Aggiungi Sponsor</button>
+        </div>
+        <p class="note">
+          Premendo <strong>⭐ Sponsor</strong> in alto: il primo tocco mostra lo Sponsor #1, ogni tocco successivo ruota allo sponsor seguente (2, 3...), mentre <strong>✕ Chiudi Sponsor</strong> nasconde il banner.
+        </p>
+        <div class="row">
+          <label style="font-size:12px; color:#cbd5e1; display:flex; align-items:center; gap:6px; cursor:pointer;">
+            <input type="checkbox" id="autoRotateSponsor" onchange="toggleAutoRotate()"> Rotazione automatica ogni
+          </label>
+          <input type="number" id="autoRotateSec" value="6" min="2" max="60" style="width:54px;"> <span style="font-size:12px;color:#94a3b8;">sec</span>
+        </div>
+        <div id="sponsorsListContainer" style="display:flex; flex-direction:column; gap:8px; margin-top:4px;"></div>
+
+        <hr style="border:0; border-top:1px solid #334155; margin:4px 0;">
+        <div class="row">
+          <img id="eventLogoPrev" class="logo-preview" alt="" style="display:none;">
+          <button class="mini-btn" onclick="document.getElementById('eventLogoInput').click()">🏆 Logo Torneo (Angolo)</button>
+          <input type="file" id="eventLogoInput" accept="image/*" style="display:none" onchange="loadLogoImage(event, 'event')">
+          <button class="mini-btn" onclick="clearLogo('event')">Rimuovi</button>
+        </div>
+      </div>
+
+      <!-- 3. Roster 16 Giocatori per Squadra -->
+      <div class="section-box">
+        <h3>Distinta 16 Giocatori (Gol / 2 Minuti)</h3>
+        <div class="row">
+          <button id="tabHome" class="hud-btn primary" style="flex:1; justify-content:center;" onclick="switchRosterTab('home')">16 Casa</button>
+          <button id="tabAway" class="hud-btn" style="flex:1; justify-content:center;" onclick="switchRosterTab('away')">16 Ospiti</button>
+        </div>
+        <div id="rosterContainer" style="display:flex; flex-direction:column; gap:5px; margin-top:4px;"></div>
+      </div>
+
+      <!-- 4. Diretta YouTube -->
+      <div class="section-box">
+        <h3>Diretta YouTube (Stream Key & Ponte)</h3>
+        <input type="password" id="ytKey" placeholder="Chiave stream YouTube (es. abcd-1234-...)">
+        <input type="text" id="relayUrl" value="ws://localhost:3000" placeholder="URL Ponte RTMP (es. ws://localhost:3000)">
+        <p class="note">
+          Inserisci la <strong>Chiave stream</strong> di YouTube Studio. Con il ponte locale attivo (<code>node relay.js</code>), il pulsante <strong>Diretta YT</strong> invia lo stream al canale.
+        </p>
+      </div>
+    </div>
+  </aside>
+
+<script>
+  const canvas = document.getElementById('programCanvas');
+  const ctx = canvas.getContext('2d');
+  const video = document.getElementById('camVideo');
+
+  function buildDefaultRoster(prefix) {
+    const namesHome = [
+      'Rossi M. (POR)', 'Bianchi L.', 'Verdi A.', 'Neri F.',
+      'Gialli S.', 'Costa D.', 'Rinaldi P.', 'Greco T.',
+      'Marini E.', 'Bruno C.', 'Gallo V.', 'Conti R.',
+      'De Luca A.', 'Mancini G.', 'Lombardi F.', 'Moretti S. (POR)'
+    ];
+    const namesAway = [
+      'Galli T. (POR)', 'Moretti G.', 'Conti E.', 'Mancini R.',
+      'Lombardi C.', 'Barbieri V.', 'Fontana M.', 'Santoro L.',
+      'Caruso D.', 'Ferrara P.', 'Russo A.', 'Ferrari N.',
+      'Esposito B.', 'Romano K.', 'Colombo J.', 'Ricci H. (POR)'
+    ];
+    const nums = ['1','3','4','5','7','8','9','10','11','13','14','15','17','19','22','12'];
+    const list = prefix === 'home' ? namesHome : namesAway;
+    return list.map((name, i) => ({ num: nums[i], name, goals: 0 }));
+  }
+
+  const state = {
+    facingMode: 'environment',
+    cameraReady: false,
+    isLive: false,
+    relayConnected: false,
+    isRecording: false,
+    timerRunning: false,
+    seconds: 0,
+    homeScore: 0,
+    awayScore: 0,
+    homeTimeouts: 3,
+    awayTimeouts: 3,
+    lineupOverlay: 'none',
+    lineupRevealStart: 0,
+    sponsorVisible: false,
+    sponsorIndex: 0,
+    sponsorAnimStart: 0,
+    sponsors: [
+      { title: 'MAIN SPONSOR: SPORT HOUSE', subtitle: 'Abbigliamento tecnico e palloni ufficiali', color: '#facc15', logo: null, logoSrc: '' },
+      { title: 'BANCA DEL TERRITORIO', subtitle: 'Al fianco dello sport giovanile e della pallamano', color: '#38bdf8', logo: null, logoSrc: '' },
+      { title: 'CENTRO FISIOTERAPICO ACTIVE', subtitle: 'Recupero atleti e medicina dello sport', color: '#4ade80', logo: null, logoSrc: '' }
+    ],
+    activeRosterTab: 'home',
+    suspensions: [],
+    lowerThird: null,
+    logos: {
+      home: null,
+      away: null,
+      event: null
+    },
+    rosters: {
+      home: buildDefaultRoster('home'),
+      away: buildDefaultRoster('away')
+    }
+  };
+
+  let currentStream = null;
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let wsSocket = null;
+  let liveStreamer = null;
+  let autoRotateTimer = null;
+
+  function loadLogoImage(event, target) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        state.logos[target] = img;
+        const prev = document.getElementById(target + 'LogoPrev');
+        if (prev) {
+          prev.src = e.target.result;
+          prev.style.display = 'inline-block';
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearLogo(target) {
+    state.logos[target] = null;
+    const prev = document.getElementById(target + 'LogoPrev');
+    if (prev) {
+      prev.src = '';
+      prev.style.display = 'none';
+    }
+  }
+
+  function renderSponsorsList() {
+    document.getElementById('sponsorCountTxt').textContent = state.sponsors.length;
+    const container = document.getElementById('sponsorsListContainer');
+    container.innerHTML = state.sponsors.map((sp, idx) => `
+      <div class="sponsor-item ${idx === state.sponsorIndex ? 'current' : ''}">
+        <div class="row" style="justify-content:space-between;">
+          <span style="font-size:11px; font-weight:800; color:${sp.color};">SPONSOR #${idx + 1} ${idx === state.sponsorIndex ? '(ATTIVO)' : ''}</span>
+          <div class="row">
+            <input type="color" value="${sp.color}" onchange="state.sponsors[${idx}].color = this.value" style="width:28px;height:26px;padding:1px;">
+            <button class="mini-btn" onclick="showSpecificSponsor(${idx})">Manda in onda</button>
+            ${state.sponsors.length > 1 ? `<button class="mini-btn danger" onclick="removeSponsor(${idx})">✕</button>` : ''}
+          </div>
+        </div>
+        <input type="text" value="${sp.title}" placeholder="Nome Sponsor" oninput="state.sponsors[${idx}].title = this.value">
+        <input type="text" value="${sp.subtitle}" placeholder="Slogan / Descrizione" oninput="state.sponsors[${idx}].subtitle = this.value">
+        <div class="row">
+          ${sp.logoSrc ? `<img src="${sp.logoSrc}" class="logo-preview">` : ''}
+          <button class="mini-btn" onclick="document.getElementById('spLogo_${idx}').click()">🖼️ Logo Sponsor #${idx + 1}</button>
+          <input type="file" id="spLogo_${idx}" accept="image/*" style="display:none" onchange="loadSponsorLogo(event, ${idx})">
+        </div>
+      </div>
+    `).join('');
+    updateSponsorHudButtons();
+  }
+
+  function loadSponsorLogo(event, idx) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        state.sponsors[idx].logo = img;
+        state.sponsors[idx].logoSrc = e.target.result;
+        renderSponsorsList();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function addSponsor() {
+    const colors = ['#facc15', '#38bdf8', '#4ade80', '#f472b6', '#fb923c'];
+    const nextColor = colors[state.sponsors.length % colors.length];
+    state.sponsors.push({
+      title: `SPONSOR #${state.sponsors.length + 1}`,
+      subtitle: 'Partner ufficiale della partita',
+      color: nextColor,
+      logo: null,
+      logoSrc: ''
+    });
+    renderSponsorsList();
+  }
+
+  function removeSponsor(idx) {
+    if (state.sponsors.length <= 1) return;
+    state.sponsors.splice(idx, 1);
+    if (state.sponsorIndex >= state.sponsors.length) state.sponsorIndex = 0;
+    renderSponsorsList();
+  }
+
+  function showSpecificSponsor(idx) {
+    state.sponsorIndex = idx;
+    state.sponsorVisible = true;
+    state.sponsorAnimStart = performance.now();
+    renderSponsorsList();
+  }
+
+  function handleSponsorButton() {
+    if (!state.sponsorVisible) {
+      state.sponsorVisible = true;
+      state.sponsorAnimStart = performance.now();
+    } else {
+      state.sponsorIndex = (state.sponsorIndex + 1) % state.sponsors.length;
+      state.sponsorAnimStart = performance.now();
+    }
+    renderSponsorsList();
+  }
+
+  function hideSponsorPopup() {
+    state.sponsorVisible = false;
+    updateSponsorHudButtons();
+  }
+
+  function updateSponsorHudButtons() {
+    const hudBtn = document.getElementById('btnSponsorHud');
+    const hideBtn = document.getElementById('btnSponsorHideHud');
+    const total = state.sponsors.length;
+    const currentNum = state.sponsorIndex + 1;
+
+    if (state.sponsorVisible) {
+      hudBtn.textContent = `⭐ Prossimo (${currentNum}/${total})`;
+      hudBtn.className = 'hud-btn warn active';
+      hideBtn.style.display = 'inline-flex';
+    } else {
+      hudBtn.textContent = `⭐ Sponsor (${currentNum}/${total})`;
+      hudBtn.className = 'hud-btn warn';
+      hideBtn.style.display = 'none';
+    }
+  }
+
+  function toggleAutoRotate() {
+    const enabled = document.getElementById('autoRotateSponsor').checked;
+    if (autoRotateTimer) {
+      clearInterval(autoRotateTimer);
+      autoRotateTimer = null;
+    }
+    if (enabled) {
+      const sec = Math.max(2, parseInt(document.getElementById('autoRotateSec').value, 10) || 6);
+      autoRotateTimer = setInterval(() => {
+        if (state.sponsorVisible && state.sponsors.length > 1) {
+          state.sponsorIndex = (state.sponsorIndex + 1) % state.sponsors.length;
+          state.sponsorAnimStart = performance.now();
+          renderSponsorsList();
+        }
+      }, sec * 1000);
+    }
+  }
+
+  function toggleSettings(open) {
+    document.getElementById('settingsDrawer').classList.toggle('open', open);
+    document.getElementById('settingsBackdrop').classList.toggle('open', open);
+    if (open) document.getElementById('lineupPopover').classList.remove('open');
+  }
+
+  function toggleLineupPopover() {
+    document.getElementById('lineupPopover').classList.toggle('open');
+  }
+
+  function toggleBrowserFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  function syncTeamUI() {
+    const hName = document.getElementById('homeName').value || 'CASA';
+    const aName = document.getElementById('awayName').value || 'OSPITI';
+    const hCol = document.getElementById('homeColor').value;
+    const aCol = document.getElementById('awayColor').value;
+
+    const hTag = document.getElementById('hudHomeTag');
+    const aTag = document.getElementById('hudAwayTag');
+    hTag.textContent = hName;
+    hTag.style.background = hCol;
+    aTag.textContent = aName;
+    aTag.style.background = aCol;
+  }
+
+  async function startSmartphoneCamera() {
+    try {
+      if (currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+      }
+      currentStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: state.facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true
+      });
+      video.srcObject = currentStream;
+      await video.play();
+      state.cameraReady = true;
+      const btn = document.getElementById('btnCam');
+      btn.textContent = '📷 Attiva';
+      btn.className = 'hud-btn success';
+    } catch (err) {
+      alert('Impossibile avviare la fotocamera: ' + err.message + '\nAssicurati di aprire la pagina in HTTPS o localhost e di concedere i permessi.');
+    }
+  }
+
+  async function flipCamera() {
+    state.facingMode = state.facingMode === 'environment' ? 'user' : 'environment';
+    if (state.cameraReady) {
+      await startSmartphoneCamera();
+    }
+  }
+
+  function getCombinedStream() {
+    const canvasStream = canvas.captureStream(30);
+    if (currentStream && currentStream.getAudioTracks().length > 0) {
+      currentStream.getAudioTracks().forEach(track => canvasStream.addTrack(track));
+    }
+    return canvasStream;
+  }
+
+  async function toggleBroadcast() {
+    if (!state.cameraReady) {
+      await startSmartphoneCamera();
+    }
+    const btn = document.getElementById('btnStream');
+    if (!state.isLive) {
+      state.isLive = true;
+      btn.textContent = '● IN DIRETTA';
+      btn.classList.add('active');
+
+      const ytKey = document.getElementById('ytKey').value.trim();
+      const relayUrl = document.getElementById('relayUrl').value.trim();
+      if (ytKey && relayUrl) {
+        try {
+          wsSocket = new WebSocket(relayUrl + '?key=' + encodeURIComponent(ytKey));
+          wsSocket.onopen = () => {
+            state.relayConnected = true;
+            const stream = getCombinedStream();
+            liveStreamer = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 2500000 });
+            liveStreamer.ondataavailable = e => {
+              if (e.data && e.data.size > 0 && wsSocket.readyState === WebSocket.OPEN) {
+                wsSocket.send(e.data);
+              }
+            };
+            liveStreamer.start(250);
+          };
+          wsSocket.onerror = () => { state.relayConnected = false; };
+          wsSocket.onclose = () => { state.relayConnected = false; };
+        } catch (e) {
+          state.relayConnected = false;
+        }
+      }
+    } else {
+      state.isLive = false;
+      state.relayConnected = false;
+      if (liveStreamer && liveStreamer.state !== 'inactive') liveStreamer.stop();
+      if (wsSocket) wsSocket.close();
+      btn.textContent = '📡 Diretta YT';
+      btn.classList.remove('active');
+    }
+  }
+
+  function toggleRecord() {
+    const btn = document.getElementById('btnRec');
+    if (!state.isRecording) {
+      try {
+        const stream = getCombinedStream();
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+          ? 'video/webm;codecs=vp9,opus'
+          : (MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '');
+        mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        recordedChunks = [];
+        mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'partita-pallamano.webm';
+          a.click();
+        };
+        mediaRecorder.start();
+        state.isRecording = true;
+        btn.textContent = '⏹ Stop';
+        btn.className = 'hud-btn danger';
+      } catch (err) {
+        alert('Registrazione non supportata: ' + err.message);
+      }
+    } else {
+      mediaRecorder.stop();
+      state.isRecording = false;
+      btn.textContent = '⏺ Registra';
+      btn.className = 'hud-btn success';
+    }
+  }
+
+  setInterval(() => {
+    if (state.timerRunning) {
+      state.seconds++;
+      state.suspensions.forEach(s => s.remaining--);
+      state.suspensions = state.suspensions.filter(s => s.remaining > 0);
+      renderSuspensionsUI();
+    }
+    const m = String(Math.floor(state.seconds / 60)).padStart(2, '0');
+    const s = String(state.seconds % 60).padStart(2, '0');
+    document.getElementById('hudTimerTxt').textContent = `${m}:${s}`;
+  }, 1000);
+
+  function toggleTimer() {
+    state.timerRunning = !state.timerRunning;
+    const btn = document.getElementById('btnTimer');
+    btn.textContent = state.timerRunning ? '⏸ Pausa' : '▶ Tempo';
+    btn.className = state.timerRunning ? 'mini-btn min2' : 'mini-btn gol';
+  }
+
+  function resetTimer() {
+    state.timerRunning = false;
+    state.seconds = 0;
+    const btn = document.getElementById('btnTimer');
+    btn.textContent = '▶ Tempo';
+    btn.className = 'mini-btn gol';
+  }
+
+  function addScore(team, delta) {
+    if (team === 'home') {
+      state.homeScore = Math.max(0, state.homeScore + delta);
+      document.getElementById('homeScoreTxt').textContent = state.homeScore;
+    } else {
+      state.awayScore = Math.max(0, state.awayScore + delta);
+      document.getElementById('awayScoreTxt').textContent = state.awayScore;
+    }
+  }
+
+  function toggleTimeout(team) {
+    const name = document.getElementById(team + 'Name').value;
+    const color = document.getElementById(team + 'Color').value;
+    if (team === 'home') {
+      state.homeTimeouts = state.homeTimeouts > 0 ? state.homeTimeouts - 1 : 3;
+      document.getElementById('homeToTxt').textContent = state.homeTimeouts;
+    } else {
+      state.awayTimeouts = state.awayTimeouts > 0 ? state.awayTimeouts - 1 : 3;
+      document.getElementById('awayToTxt').textContent = state.awayTimeouts;
+    }
+    showLowerThird('TIMEOUT ' + name, 'Richiesto dalla panchina', color);
+  }
+
+  function addSuspension(team, playerLabel = '') {
+    state.suspensions.push({ team, remaining: 120, player: playerLabel });
+    renderSuspensionsUI();
+  }
+
+  function renderSuspensionsUI() {
+    const el = document.getElementById('suspensionsList');
+    el.innerHTML = state.suspensions.map((s, idx) => {
+      const m = Math.floor(s.remaining / 60);
+      const sec = String(s.remaining % 60).padStart(2, '0');
+      const tName = s.team === 'home' ? document.getElementById('homeName').value : document.getElementById('awayName').value;
+      return `<span class="badge-2m" onclick="state.suspensions.splice(${idx},1);renderSuspensionsUI()">${tName} ${s.player} ${m}:${sec} ✕</span>`;
+    }).join('');
+  }
+
+  function setLineupOverlay(mode) {
+    state.lineupOverlay = mode;
+    if (mode !== 'none') {
+      state.lineupRevealStart = performance.now();
+    }
+    ['ovHome', 'ovAway', 'ovBoth', 'ovNone'].forEach(id => document.getElementById(id).classList.remove('active'));
+    const map = { home: 'ovHome', away: 'ovAway', both: 'ovBoth', none: 'ovNone' };
+    document.getElementById(map[mode]).classList.add('active');
+
+    const mainBtn = document.getElementById('btnToggleLineupMenu');
+    if (mode === 'none') {
+      mainBtn.textContent = '📋 Mostra Formazioni';
+      mainBtn.className = 'hud-btn primary';
+    } else {
+      mainBtn.textContent = '📋 Formazioni ON AIR';
+      mainBtn.className = 'hud-btn danger active';
+    }
+    document.getElementById('lineupPopover').classList.remove('open');
+  }
+
+  function showLowerThird(title, subtitle, color) {
+    state.lowerThird = { title, subtitle, color, expires: Date.now() + 5000 };
+  }
+
+  function switchRosterTab(team) {
+    state.activeRosterTab = team;
+    document.getElementById('tabHome').className = team === 'home' ? 'hud-btn primary' : 'hud-btn';
+    document.getElementById('tabAway').className = team === 'away' ? 'hud-btn primary' : 'hud-btn';
+    renderRoster();
+  }
+
+  function renderRoster() {
+    const team = state.activeRosterTab;
+    const container = document.getElementById('rosterContainer');
+    container.innerHTML = state.rosters[team].map((p, i) => `
+      <div class="player-row">
+        <input type="text" value="${p.num}" onchange="state.rosters['${team}'][${i}].num = this.value">
+        <input type="text" value="${p.name}" onchange="state.rosters['${team}'][${i}].name = this.value">
+        <button class="mini-btn gol" onclick="playerGoal('${team}', ${i})">+1 (${p.goals})</button>
+        <button class="mini-btn min2" onclick="playerTwoMin('${team}', ${i})">2'</button>
+      </div>
+    `).join('');
+  }
+
+  function playerGoal(team, idx) {
+    const p = state.rosters[team][idx];
+    p.goals++;
+    addScore(team, 1);
+    const color = document.getElementById(team + 'Color').value;
+    const teamName = document.getElementById(team + 'Name').value;
+    showLowerThird(`GOL! #${p.num} ${p.name}`, `${teamName} • Gol nella partita: ${p.goals}`, color);
+    renderRoster();
+  }
+
+  function playerTwoMin(team, idx) {
+    const p = state.rosters[team][idx];
+    addSuspension(team, `#${p.num}`);
+    const teamName = document.getElementById(team + 'Name').value;
+    showLowerThird('ESCLUSIONE 2 MINUTI', `#${p.num} ${p.name} (${teamName})`, '#eab308');
+  }
+
+  function drawImageFit(img, x, y, boxW, boxH) {
+    if (!img) return;
+    const ratio = Math.min(boxW / img.width, boxH / img.height);
+    const w = img.width * ratio;
+    const h = img.height * ratio;
+    ctx.drawImage(img, x + (boxW - w) / 2, y + (boxH - h) / 2, w, h);
+  }
+
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function drawFallbackCourt() {
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(0, 0, 1280, 720);
+    ctx.fillStyle = '#0369a1';
+    ctx.fillRect(90, 75, 1100, 570);
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(90, 75, 1100, 570);
+    ctx.beginPath(); ctx.moveTo(640, 75); ctx.lineTo(640, 645); ctx.stroke();
+    ctx.beginPath(); ctx.arc(90, 360, 160, -Math.PI/2, Math.PI/2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(1190, 360, 160, Math.PI/2, -Math.PI/2); ctx.stroke();
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 23px sans-serif';
+    ctx.fillText('Tocca "📷 Camera" in alto per avviare la videocamera a tutto schermo', 265, 365);
+  }
+
+  function drawScorebug() {
+    const homeName = document.getElementById('homeName').value;
+    const awayName = document.getElementById('awayName').value;
+    const homeColor = document.getElementById('homeColor').value;
+    const awayColor = document.getElementById('awayColor').value;
+    const half = document.getElementById('halfSelect').value;
+    const mins = String(Math.floor(state.seconds / 60)).padStart(2, '0');
+    const secs = String(state.seconds % 60).padStart(2, '0');
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.fillRect(36, 24, 620, 56);
+
+    ctx.fillStyle = homeColor;
+    ctx.fillRect(36, 24, 10, 56);
+    let hTextX = 54;
+    if (state.logos.home) {
+      drawImageFit(state.logos.home, 52, 32, 40, 40);
+      hTextX = 100;
+    }
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 19px sans-serif';
+    ctx.fillText(homeName, hTextX, 59);
+    ctx.font = '900 26px sans-serif';
+    ctx.fillText(state.homeScore, 250, 61);
+
+    ctx.fillStyle = awayColor;
+    ctx.fillRect(302, 24, 10, 56);
+    let aTextX = 320;
+    if (state.logos.away) {
+      drawImageFit(state.logos.away, 318, 32, 40, 40);
+      aTextX = 366;
+    }
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 19px sans-serif';
+    ctx.fillText(awayName, aTextX, 59);
+    ctx.font = '900 26px sans-serif';
+    ctx.fillText(state.awayScore, 516, 61);
+
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(562, 24, 94, 56);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText(half, 594, 42);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillText(`${mins}:${secs}`, 578, 67);
+
+    state.suspensions.forEach((s, i) => {
+      const m = Math.floor(s.remaining / 60);
+      const sc = String(s.remaining % 60).padStart(2, '0');
+      const x = s.team === 'home' ? 36 : 302;
+      ctx.fillStyle = '#eab308';
+      ctx.fillRect(x, 84 + i * 26, 155, 22);
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText(`2' ${s.player} (${m}:${sc})`, x + 8, 99 + i * 26);
+    });
+  }
+
+  // SCHEDA FORMAZIONE: LA FINESTRA SALE DA SOTTO E POI APPARE 1 NOME OGNI SECONDO
+  function drawLineupCard(team, x, targetY, width, now) {
+    const name = document.getElementById(team + 'Name').value;
+    const color = document.getElementById(team + 'Color').value;
+    const coach = document.getElementById(team + 'Coach').value;
+    const logo = state.logos[team];
+    const list = state.rosters[team];
+
+    const elapsed = Math.max(0, now - state.lineupRevealStart);
+
+    // Fase 1: La finestra sale dal basso dello schermo (da y=740 fino a targetY in 650ms)
+    const windowSlideDuration = 650;
+    const winT = easeOutCubic(Math.min(1, elapsed / windowSlideDuration));
+    const startY = 740;
+    const currentY = startY + (targetY - startY) * winT;
+
+    const cardH = 490;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, elapsed / 200);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+    ctx.fillRect(x, currentY, width, cardH);
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, currentY, width, cardH);
+
+    // Intestazione squadra + Logo (si muove insieme alla finestra)
+    ctx.fillStyle = color;
+    ctx.fillRect(x, currentY, width, 54);
+
+    let titleX = x + 18;
+    if (logo) {
+      drawImageFit(logo, x + 14, currentY + 7, 40, 40);
+      titleX = x + 64;
+    }
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 21px sans-serif';
+    ctx.fillText(`FORMAZIONE ${name}`, titleX, currentY + 35);
+    ctx.restore();
+
+    // Fase 2: Una volta salita la finestra, i nomi appaiono UNO OGNI SECONDO (1000ms)
+    const colW = (width - 36) / 2;
+    const stepMs = 1000; // 1 secondo esatto tra un giocatore e il successivo
+    const itemFadeDuration = 350;
+
+    list.forEach((p, idx) => {
+      const itemDelay = windowSlideDuration + idx * stepMs;
+      const rawT = (elapsed - itemDelay) / itemFadeDuration;
+      if (rawT <= 0) return;
+
+      const t = easeOutCubic(Math.min(1, rawT));
+      const slideOffset = (1 - t) * -22;
+
+      const col = idx < 8 ? 0 : 1;
+      const row = idx % 8;
+      const cellX = x + 14 + col * (colW + 8) + slideOffset;
+      const cellY = currentY + 72 + row * 45;
+
+      ctx.save();
+      ctx.globalAlpha = t;
+
+      ctx.fillStyle = row % 2 === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)';
+      ctx.fillRect(cellX, cellY, colW, 38);
+
+      ctx.fillStyle = color;
+      ctx.fillRect(cellX, cellY, 4, 38);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 16px monospace';
+      ctx.fillText(`#${p.num}`, cellX + 10, cellY + 25);
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 15px sans-serif';
+      const displayName = p.name.length > 16 ? p.name.slice(0, 15) + '…' : p.name;
+      ctx.fillText(displayName, cellX + 48, cellY + 25);
+
+      if (p.goals > 0) {
+        ctx.fillStyle = '#4ade80';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText(`${p.goals}G`, cellX + colW - 34, cellY + 25);
+      }
+
+      ctx.restore();
+    });
+
+    // Fase 3: 1 secondo dopo il 16° giocatore appare anche l'Allenatore
+    const coachDelay = windowSlideDuration + list.length * stepMs;
+    const coachRawT = (elapsed - coachDelay) / itemFadeDuration;
+    if (coachRawT > 0) {
+      const ct = easeOutCubic(Math.min(1, coachRawT));
+      const slideY = (1 - ct) * 14;
+      ctx.save();
+      ctx.globalAlpha = ct;
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(x + 14, currentY + cardH - 46 + slideY, width - 28, 34);
+      ctx.fillStyle = '#facc15';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText('ALLENATORE:', x + 26, currentY + cardH - 24 + slideY);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillText(coach || 'Non inserito', x + 132, currentY + cardH - 24 + slideY);
+      ctx.restore();
+    }
+  }
+
+  // POPUP SPONSOR A ROTAZIONE CON TRANSIZIONE FLUIDA
+  function drawSponsorPopup(now) {
+    if (!state.sponsorVisible || state.sponsors.length === 0) return;
+    const sp = state.sponsors[state.sponsorIndex % state.sponsors.length];
+    const animT = easeOutCubic(Math.min(1, Math.max(0, (now - state.sponsorAnimStart) / 300)));
+
+    const boxW = 640;
+    const boxH = 114;
+    const x = (1280 - boxW) / 2;
+    const y = 512 + (1 - animT) * 24;
+
+    ctx.save();
+    ctx.globalAlpha = animT;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.96)';
+    ctx.fillRect(x, y, boxW, boxH);
+    ctx.strokeStyle = sp.color || '#facc15';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x, y, boxW, boxH);
+
+    ctx.fillStyle = sp.color || '#facc15';
+    ctx.fillRect(x, y, 12, boxH);
+
+    let textX = x + 28;
+    if (sp.logo) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x + 24, y + 15, 84, 84);
+      drawImageFit(sp.logo, x + 28, y + 19, 76, 76);
+      textX = x + 124;
+    }
+
+    ctx.fillStyle = sp.color || '#facc15';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText(`PARTNER UFFICIALE • ${state.sponsorIndex + 1} DI ${state.sponsors.length}`, textX, y + 28);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 23px sans-serif';
+    ctx.fillText(sp.title || 'SPONSOR', textX, y + 58);
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(sp.subtitle || '', textX, y + 86);
+
+    if (state.sponsors.length > 1) {
+      for (let i = 0; i < state.sponsors.length; i++) {
+        ctx.beginPath();
+        ctx.arc(x + boxW - 22 - (state.sponsors.length - 1 - i) * 14, y + boxH - 16, 4, 0, Math.PI * 2);
+        ctx.fillStyle = i === state.sponsorIndex ? (sp.color || '#facc15') : 'rgba(255,255,255,0.25)';
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function renderLoop(now) {
+    ctx.clearRect(0, 0, 1280, 720);
+    if (state.cameraReady && video.readyState >= 2) {
+      ctx.drawImage(video, 0, 0, 1280, 720);
+    } else {
+      drawFallbackCourt();
+    }
+
+    drawScorebug();
+
+    if (state.isLive) {
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(672, 24, 108, 36);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 17px sans-serif';
+      ctx.fillText('● LIVE', 688, 48);
+    }
+
+    if (state.logos.event) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+      ctx.fillRect(1144, 72, 100, 100);
+      drawImageFit(state.logos.event, 1152, 80, 84, 84);
+    }
+
+    if (state.lineupOverlay === 'home') {
+      drawLineupCard('home', 350, 105, 580, now);
+    } else if (state.lineupOverlay === 'away') {
+      drawLineupCard('away', 350, 105, 580, now);
+    } else if (state.lineupOverlay === 'both') {
+      drawLineupCard('home', 36, 105, 590, now);
+      drawLineupCard('away', 654, 105, 590, now);
+    }
+
+    drawSponsorPopup(now);
+
+    if (state.lowerThird && Date.now() < state.lowerThird.expires && !state.sponsorVisible) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      ctx.fillRect(36, 540, 580, 82);
+      ctx.fillStyle = state.lowerThird.color;
+      ctx.fillRect(36, 540, 14, 82);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText(state.lowerThird.title, 64, 575);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '17px sans-serif';
+      ctx.fillText(state.lowerThird.subtitle, 64, 604);
+    }
+
+    requestAnimationFrame(renderLoop);
+  }
+
+  syncTeamUI();
+  renderSponsorsList();
+  renderRoster();
+  requestAnimationFrame(renderLoop);
+</script>
+</body>
+</html>
